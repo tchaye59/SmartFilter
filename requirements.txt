@@ -1,0 +1,15 @@
+torch==1.9.0
+torchvision==0.10.0
+git+https://github.com/votchallenge/vot-toolkit-python@c764ff3
+git+https://github.com/facebookresearch/detectron2@068a93a
+git+https://github.com/tchaye59/torchutils@main
+dill==0.3.3
+opencv-python
+imagezmq
+pyzmq==19.0.2
+gym
+#tensorflow-gpu==2.4.0
+tensorflow==2.4.0
+pandas
+tensorflow-addons
+streamlink

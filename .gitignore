@@ -1,0 +1,6 @@
+/venv/
+/.vscode/
+/.idea/
+/data/
+/logs/
+/models/
