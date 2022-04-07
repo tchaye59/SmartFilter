@@ -22,29 +22,39 @@ def parse_args():
     parser.add_argument('--model_path', type=str, default="models/actor_actor.h5", help='')
     parser.add_argument('--jpeg_quality', type=int, default=95, help='0 to 100, higher is better quality, 95 is cv2 '
                                                                      'default')
+    parser.add_argument('--win_size', type=int, default=100, help='The frames window size')
 
     args = parser.parse_args()
     return args
 
 
-def smart_filter(frame, model_path):
+def smart_filter(frame, model_path,win_size=100):
     frame = cv2.resize(frame, (112, 112), interpolation=cv2.INTER_LINEAR)
     frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)[:, :, np.newaxis]
     if not hasattr(smart_filter, 'data'):
         actor = build_actor()
         actor.load_weights(model_path)
         actor = to_TFLite(actor)
-        smart_filter.data = actor, frame, np.array([0, ])
+        win_counter = 0
+        smart_filter.data = actor, frame, np.array([0, ]),win_counter
         return 0
-    actor, base_frame, prev_action = smart_filter.data
-    # Predict
-    X = ((frame - base_frame)[np.newaxis], prev_action.reshape((1, 1)))
-    prob = actor(X)
-    action = np.argmax(prob, axis=-1)
+    actor, base_frame, prev_action,win_counter= smart_filter.data
+
+    if win_counter >= win_size:
+        # Reset the window
+        base_frame = frame
+        action = np.array([0, ])
+        win_counter = 0
+    else:
+        # Predict
+        X = ((frame - base_frame)[np.newaxis], prev_action.reshape((1, 1)))
+        prob = actor(X)
+        action = np.argmax(prob, axis=-1)
 
     if action[0] == 0:
         base_frame = frame
-    smart_filter.data = actor, base_frame, action
+    win_counter += 1
+    smart_filter.data = actor, base_frame, action,win_counter
     return action[0]
 
 
@@ -57,6 +67,7 @@ def run():
     stream = args.stream
     ip = args.ip
     port = args.port
+    win_size = args.win_size
     source = input_video if input_video else camera_id
     sender = imagezmq.ImageSender(connect_to=f'tcp://{ip}:{port}')
     message = socket.gethostname()  # send hostname with each image
@@ -78,7 +89,7 @@ def run():
 
         if stream:
             if args.filter:
-                action = smart_filter(frame, model_path)
+                action = smart_filter(frame, model_path,win_size=win_size)
                 if action == 0:
                     if visualize:
                         cv2.imshow(message, frame)

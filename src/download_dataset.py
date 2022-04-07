@@ -18,14 +18,16 @@ parser.add_argument('--data_path', type=str, default='data', help='The path wher
 URL = "https://bitbucket.org/merayxu/multiview-object-tracking-dataset/get/59d1683b271b.zip"
 
 
-def split_annotations(annotations, test_size=0.2, random_state=0):
+def split_annotations(annotations, test_size=0.2, random_state=0, shuffle=False):
     # split dataset
     training_annotations, testing_annotations = {}, {}
     # Build target
     for key, data in annotations.items():
         training_annotations[key] = []
-        train_frames, test_frames = train_test_split(data, stratify=[x[-1] for x in data], test_size=test_size,
-                                                     shuffle=True, random_state=random_state)
+        size = int(test_size * len(data))
+        train_frames = data[:-size]
+        test_frames = data[size:]
+
         training_annotations[key] = train_frames
         testing_annotations[key] = test_frames
     return training_annotations, testing_annotations
@@ -170,6 +172,10 @@ if __name__ == '__main__':
                 header = ['track_id', 'xmin', 'ymin', 'xmax', 'ymax', 'frame_number', 'lost', 'occluded', 'generated',
                           'label']
                 ann = df.read_csv(annotation, delimiter=" ", header=None, names=header)
+                # ann = ann[ann.occluded == 0]
+                ann = ann[ann.lost == 0]
+                ann = ann[ann.label == "PERSON"]
+
                 cap = cv2.VideoCapture(source)
                 basename = os.path.basename(source)
                 basename = os.path.splitext(basename)[0]
@@ -187,10 +193,10 @@ if __name__ == '__main__':
                     print(f"{i}-->{basename}", end="\r")
                     i += 1
                 default_width, default_height, _ = last_frame.shape
-                ann.ymin = (ann.ymin / default_width) * WIDHT
-                ann.ymax = (ann.ymax / default_width) * WIDHT
-                ann.xmin = (ann.xmin / default_height) * HEIGHT
-                ann.xmax = (ann.xmax / default_height) * HEIGHT
+                ann.ymin = ann.ymin * (WIDHT / default_width)
+                ann.ymax = ann.ymax * (WIDHT / default_width)
+                ann.xmin = ann.xmin * (HEIGHT / default_height)
+                ann.xmax = ann.xmax * (HEIGHT / default_height)
                 header = ['track_id', 'xmin', 'ymin', 'xmax', 'ymax', 'lost', 'occluded', 'generated', 'label']
                 ann = ann.groupby('frame_number')[header].apply(lambda g: g.values.tolist()).to_dict()
                 print(f"({dir_name},{basename}): ", i - 1, len(ann))
